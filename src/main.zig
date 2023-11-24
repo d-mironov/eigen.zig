@@ -15,22 +15,15 @@ pub fn main() !void {
     try m1.insert(0, 1, 2.0);
     try m1.insert(1, 0, 3.0);
     try m1.insert(1, 1, 4.0);
-    // std.debug.print("{}", .{m1});
-    for (0..m1.rows) |i| {
-        for (0..m1.cols) |j| {
-            std.debug.print("| {} ", .{try m1.get(i, j)});
-        }
-        std.debug.print("|\n", .{});
-    }
+    std.debug.print("{s}\n", .{m1});
 
-    var eye = try Matrix.eye(2, allocator);
+    var eye = try Matrix.eye(4, allocator);
     defer eye.deinit();
-    for (0..eye.rows) |i| {
-        for (0..eye.cols) |j| {
-            std.debug.print("| {} ", .{try eye.get(i, j)});
-        }
-        std.debug.print("|\n", .{});
-    }
+    std.debug.print("{s}\n", .{eye});
+
+    var m2 = try Matrix.init(4, 5, allocator);
+    defer m2.deinit();
+    std.debug.print("{s}\n", .{m2});
 }
 
 test "matrix test" {
