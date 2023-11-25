@@ -23,7 +23,13 @@ pub fn main() !void {
 
     var m2 = try Matrix.init(4, 5, allocator);
     defer m2.deinit();
+    try m2.insert(1, 1, 4.567890);
     std.debug.print("{s}\n", .{m2});
+
+    // var m3 = try Matrix.init_square(30, allocator);
+    // defer m3.deinit();
+    // try m3.insert(10, 10, 4.567890);
+    // std.debug.print("{s}\n", .{m3});
 }
 
 test "matrix test" {

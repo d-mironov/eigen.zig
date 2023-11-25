@@ -87,7 +87,7 @@ pub const Matrix = struct {
             }
             for (0..self.cols) |j| {
                 // var val = try self.get(i, j);
-                var val = self.data.items[i * self.cols + j];
+                const val = self.data.items[i * self.cols + j];
                 if (j == self.cols - 1) {
                     try writer.print(" {}", .{val});
                 } else {
