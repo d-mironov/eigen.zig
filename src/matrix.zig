@@ -8,6 +8,7 @@ const Allocator = std.mem.Allocator;
 pub const MatrixError = error{
     ShapeError,
     OutOfBound,
+    DimensionMismatch,
 };
 
 pub const Shape = struct { usize, usize };
@@ -17,6 +18,7 @@ pub const Matrix = struct {
     cols: usize,
     data: ArrayList(f64),
     shape: Shape,
+    allocator: std.mem.Allocator,
 
     pub fn from_file(file: std.fs.File) (MatrixError || Allocator.Error)!Matrix {
         _ = file;
@@ -31,7 +33,11 @@ pub const Matrix = struct {
     }
 
     /// Create a zero initialized Matrix
-    pub fn init(rows: usize, cols: usize, allocator: std.mem.Allocator) (MatrixError || Allocator.Error)!Matrix {
+    pub fn init(
+        rows: usize,
+        cols: usize,
+        allocator: std.mem.Allocator,
+    ) (MatrixError || Allocator.Error)!Matrix {
         if (rows == 0 or cols == 0) {
             return MatrixError.ShapeError;
         }
@@ -45,11 +51,15 @@ pub const Matrix = struct {
             .rows = rows,
             .cols = cols,
             .data = data,
+            .allocator = allocator,
         };
     }
 
     /// Create a Zero initialized square Matrix
-    pub fn init_square(size: usize, allocator: std.mem.Allocator) (MatrixError || Allocator.Error)!Matrix {
+    pub fn init_square(
+        size: usize,
+        allocator: std.mem.Allocator,
+    ) (MatrixError || Allocator.Error)!Matrix {
         return Matrix.init(size, size, allocator);
     }
 
@@ -71,6 +81,7 @@ pub const Matrix = struct {
             .rows = size,
             .cols = size,
             .data = data,
+            .allocator = allocator,
         };
     }
 
@@ -101,6 +112,59 @@ pub const Matrix = struct {
             }
         }
         try writer.writeAll("]");
+    }
+
+    pub fn equal(self: Matrix, other: Matrix) MatrixError!bool {
+        if (self.cols != other.rows or self.rows != other.cols) {
+            return MatrixError.DimensionMismatch;
+        }
+        for (0..self.rows) |row| {
+            for (0..self.cols) |col| {
+                const idx = row * self.cols + col;
+                if (self.data.items[idx] == other.data.items[idx]) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /// Multiply two matrices and return the output matrix
+    pub fn mult(self: Matrix, other: Matrix) MatrixError!Matrix {
+        if (self.cols != other.rows or self.rows != other.cols) {
+            return MatrixError.DimensionMismatch;
+        }
+        // TODO: matrix multiplication
+    }
+
+    /// Add two matrices and return the resulting matrix
+    pub fn add(self: Matrix, other: Matrix) (MatrixError || Allocator.Error)!Matrix {
+        if (self.rows != other.rows and self.cols != other.rows) {
+            return MatrixError.DimensionMismatch;
+        }
+        var retval = try Matrix.init(self.rows, self.cols, self.allocator);
+        for (0..self.rows) |row| {
+            for (0..self.cols) |col| {
+                const idx = row * self.cols + col;
+                retval.data.items[idx] = self.data.items[idx] + other.data.items[idx];
+            }
+        }
+        return retval;
+    }
+
+    /// Subtract two matrices and return the resulting matrix
+    pub fn sub(self: Matrix, other: Matrix) (MatrixError || Allocator.Error)!Matrix {
+        if (self.rows != other.rows and self.cols != other.rows) {
+            return MatrixError.DimensionMismatch;
+        }
+        var retval = try Matrix.init(self.rows, self.cols, self.allocator);
+        for (0..self.rows) |row| {
+            for (0..self.cols) |col| {
+                const idx = row * self.cols + col;
+                retval.data.items[idx] = self.data.items[idx] - other.data.items[idx];
+            }
+        }
+        return retval;
     }
 
     /// Insert an element into the Matrix
