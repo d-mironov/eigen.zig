@@ -1,7 +1,10 @@
 /// Author: Daniel Mironow
-///
+/// TODO: Add hardware specialized support
+/// TODO: GPU support?
+/// TODO: Multithreading?
 ///
 const std = @import("std");
+const expect = std.testing.expect;
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 
@@ -13,12 +16,16 @@ pub const MatrixError = error{
 
 pub const Shape = struct { usize, usize };
 
+// TODO: Make generic
 pub const Matrix = struct {
     rows: usize,
     cols: usize,
     data: ArrayList(f64),
     shape: Shape,
     allocator: std.mem.Allocator,
+    // TODO: Add T (transpose) and I (inverse) of matrix as attributes
+    // T: Matrix,
+    // I: Matrix,
 
     pub fn from_file(file: std.fs.File) (MatrixError || Allocator.Error)!Matrix {
         _ = file;
@@ -30,6 +37,11 @@ pub const Matrix = struct {
         // 9 5 2 2 1
         // 8 3 4 9 2
         // 3 4 7 6 3
+    }
+
+    pub fn to_file(file: std.fs.File) (MatrixError || Allocator.Error) {
+        _ = file;
+        // TODO: Write matrix to file
     }
 
     /// Create a zero initialized Matrix
@@ -62,6 +74,13 @@ pub const Matrix = struct {
     ) (MatrixError || Allocator.Error)!Matrix {
         return Matrix.init(size, size, allocator);
     }
+
+    pub fn fill(self: Matrix, value: f64) !void {
+        _ = value;
+        _ = self;
+        // TODO: Filling matrix with one value
+    }
+    
 
     /// Create a zero initialized square matrix with ones on the diagonal
     pub fn eye(size: usize, allocator: Allocator) (MatrixError || Allocator.Error)!Matrix {
@@ -114,19 +133,63 @@ pub const Matrix = struct {
         try writer.writeAll("]");
     }
 
-    pub fn equal(self: Matrix, other: Matrix) MatrixError!bool {
+    pub fn is_equal(self: Matrix, other: Matrix) MatrixError!bool {
         if (self.cols != other.rows or self.rows != other.cols) {
             return MatrixError.DimensionMismatch;
         }
         for (0..self.rows) |row| {
             for (0..self.cols) |col| {
                 const idx = row * self.cols + col;
-                if (self.data.items[idx] == other.data.items[idx]) {
-                    return true;
+                if (self.data.items[idx] != other.data.items[idx]) {
+                    return false;
                 }
             }
         }
-        return false;
+        return true;
+    }
+
+    pub fn max(self: Matrix) MatrixError!f64 {
+        _ = self;
+        // TODO: Maximum value of matrix
+    }
+
+    pub fn max_axis(self: Matrix, axis: usize) MatrixError!f64 {
+        _ = axis;
+        _ = self;
+        // TODO: Maximum value of matrix on given axis
+    }
+
+    pub fn min(self: Matrix) MatrixError!f64 {
+        _ = self;
+        // TODO: Minimum value of matrix
+    }
+
+    pub fn min_axis(self: Matrix, axis: usize) MatrixError!f64 {
+        _ = axis;
+        _ = self;
+        // TODO: Minimum value of matrix on given axis
+    }
+
+    pub fn mean(self: Matrix) MatrixError!f64 {
+        _ = self;
+        // TODO: mean of matrix
+    }
+
+    pub fn mean_axis(self: Matrix, axis: usize) MatrixError!f64 {
+        _ = axis;
+        _ = self;
+        // TODO: mean of matrix on given axis
+    }
+
+    pub fn sum(self: Matrix) MatrixError!f64 {
+        _ = self;
+        // TODO: sum of values in matrix
+    }
+
+    pub fn sum_axis(self: Matrix, axis: usize) MatrixError!f64 {
+        _ = axis;
+        _ = self;
+        // TODO: sum of values in matrix on given axis
     }
 
     /// Multiply two matrices and return the output matrix
@@ -135,6 +198,16 @@ pub const Matrix = struct {
             return MatrixError.DimensionMismatch;
         }
         // TODO: matrix multiplication
+    }
+
+    pub fn transpose(self: Matrix) MatrixError!Matrix {
+        _ = self;
+        // TODO: Matrix transpose
+    }
+
+    pub fn inverse(self: Matrix) MatrixError!Matrix {
+        _ = self;
+        // TODO: Matrix inverse
     }
 
     /// Add two matrices and return the resulting matrix
@@ -195,3 +268,78 @@ pub const Matrix = struct {
 //     }
 //     return Matrix{ .data = vector, .rows = rows, .cols = cols, .shape = shape };
 // }
+test "matrix insert" {
+    const allocator = std.heap.page_allocator;
+
+    var m1 = try Matrix.init(2, 2, allocator);
+    defer m1.deinit();
+
+    try m1.insert(0, 0, 1.0);
+    try m1.insert(0, 1, 2.0);
+    try m1.insert(1, 0, 3.0);
+    try m1.insert(1, 1, 4.0);
+    try expect(m1.insert(2, 0, 1.0) == MatrixError.OutOfBound);
+}
+
+test "matrix equal" {
+    const allocator = std.heap.page_allocator;
+
+    var m1 = try Matrix.init_square(4, allocator);
+    defer m1.deinit();
+    var m2 = try Matrix.init_square(4, allocator);
+    defer m2.deinit();
+
+    try m1.insert(0, 0, 1.0);
+    try m2.insert(0, 0, 1.0);
+    try m2.insert(1, 1, 5.0);
+
+    // Check for equality false
+    try expect(try m1.is_equal(m2) == false);
+
+    // Check for equality true
+    try m1.insert(1, 1, 5.0);
+    try expect(try m1.is_equal(m2) == true);
+
+    // Check for dimension mismatch
+    var m3 = try Matrix.init_square(3, allocator);
+    try expect(m1.is_equal(m3) == MatrixError.DimensionMismatch);
+
+}
+
+test "matrix add" {
+    const allocator = std.heap.page_allocator;
+    var m1 = try Matrix.eye(2, allocator);
+    var m2 = try Matrix.eye(2, allocator);
+    const m3 = try m1.add(m2);
+    var res = try Matrix.init(2, 2, allocator);
+    try res.insert(0, 0, 2.0);
+    try res.insert(1, 1, 2.0);
+
+    try expect(res.rows == 2);
+    try expect(res.cols == 2);
+    try expect(try res.is_equal(m3) == true);
+
+    // Check for different matrix dimensions
+    m1 = try Matrix.eye(2, allocator);
+    m2 = try Matrix.eye(3, allocator);
+    try expect(m1.add(m2) == MatrixError.DimensionMismatch);
+}
+
+test "matrix sub" {
+    const allocator = std.heap.page_allocator;
+
+    // Default subtraction case
+    var m1 = try Matrix.eye(2, allocator);
+    var m2 = try Matrix.eye(2, allocator);
+    const m3 = try m1.sub(m2);
+    var res = try Matrix.init_square(2, allocator);
+
+    try expect(res.rows == 2);
+    try expect(res.cols == 2);
+    try expect(try res.is_equal(m3) == true);
+
+    // Check for different matrix dimensions
+    m1 = try Matrix.eye(2, allocator);
+    m2 = try Matrix.eye(3, allocator);
+    try expect(m1.sub(m2) == MatrixError.DimensionMismatch);
+}
