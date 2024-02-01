@@ -27,6 +27,15 @@ pub const Matrix = struct {
     // T: Matrix,
     // I: Matrix,
 
+    pub fn from_string(str: []const u8) MatrixError!Matrix {
+        _ = str;
+        // TODO: Create matrix from a string
+        // Example:
+        // Matrix.from_string("1 2; 3 4")
+        // Matrix.from_string("1 2;3 4")
+        // Matrix.from_string("1.2 2.23; 3 4.0")
+    }
+
     pub fn from_file(file: std.fs.File) (MatrixError || Allocator.Error)!Matrix {
         _ = file;
         // TODO: Create a matrix from a file
@@ -80,7 +89,6 @@ pub const Matrix = struct {
         _ = self;
         // TODO: Filling matrix with one value
     }
-    
 
     /// Create a zero initialized square matrix with ones on the diagonal
     pub fn eye(size: usize, allocator: Allocator) (MatrixError || Allocator.Error)!Matrix {
@@ -148,9 +156,17 @@ pub const Matrix = struct {
         return true;
     }
 
-    pub fn max(self: Matrix) MatrixError!f64 {
-        _ = self;
-        // TODO: Maximum value of matrix
+    pub fn max(self: Matrix) f64 {
+        var cur_max = self.data.items[0];
+        for (0..self.rows) |row| {
+            for (0..self.cols) |col| {
+                const value = self.data.items[row * self.cols + col];
+                if (value > cur_max) {
+                    cur_max = value;
+                }
+            }
+        }
+        return cur_max;
     }
 
     pub fn max_axis(self: Matrix, axis: usize) MatrixError!f64 {
@@ -159,9 +175,17 @@ pub const Matrix = struct {
         // TODO: Maximum value of matrix on given axis
     }
 
-    pub fn min(self: Matrix) MatrixError!f64 {
-        _ = self;
-        // TODO: Minimum value of matrix
+    pub fn min(self: Matrix) f64 {
+        var cur_min = self.data.items[0];
+        for (0..self.rows) |row| {
+            for (0..self.cols) |col| {
+                const value = self.data.items[row * self.cols + col];
+                if (value < cur_min) {
+                    cur_min = value;
+                }
+            }
+        }
+        return cur_min;
     }
 
     pub fn min_axis(self: Matrix, axis: usize) MatrixError!f64 {
@@ -170,9 +194,14 @@ pub const Matrix = struct {
         // TODO: Minimum value of matrix on given axis
     }
 
-    pub fn mean(self: Matrix) MatrixError!f64 {
-        _ = self;
-        // TODO: mean of matrix
+    pub fn mean(self: Matrix) f64 {
+        var retval: f64 = 0.0;
+        for (0..self.rows) |row| {
+            for (0..self.cols) |col| {
+                retval += self.data.items[row * self.cols + col];
+            }
+        }
+        return retval / @as(f64, @floatFromInt(self.rows * self.cols));
     }
 
     pub fn mean_axis(self: Matrix, axis: usize) MatrixError!f64 {
@@ -181,9 +210,14 @@ pub const Matrix = struct {
         // TODO: mean of matrix on given axis
     }
 
-    pub fn sum(self: Matrix) MatrixError!f64 {
-        _ = self;
-        // TODO: sum of values in matrix
+    pub fn sum(self: Matrix) f64 {
+        var retval: f64 = 0;
+        for (0..self.rows) |row| {
+            for (0..self.cols) |col| {
+                retval += self.data.items[row * self.cols + col];
+            }
+        }
+        return retval;
     }
 
     pub fn sum_axis(self: Matrix, axis: usize) MatrixError!f64 {
@@ -193,7 +227,7 @@ pub const Matrix = struct {
     }
 
     /// Multiply two matrices and return the output matrix
-    pub fn mult(self: Matrix, other: Matrix) MatrixError!Matrix {
+    pub fn mul(self: Matrix, other: Matrix) MatrixError!Matrix {
         if (self.cols != other.rows or self.rows != other.cols) {
             return MatrixError.DimensionMismatch;
         }
@@ -303,7 +337,6 @@ test "matrix equal" {
     // Check for dimension mismatch
     var m3 = try Matrix.init_square(3, allocator);
     try expect(m1.is_equal(m3) == MatrixError.DimensionMismatch);
-
 }
 
 test "matrix add" {
@@ -342,4 +375,66 @@ test "matrix sub" {
     m1 = try Matrix.eye(2, allocator);
     m2 = try Matrix.eye(3, allocator);
     try expect(m1.sub(m2) == MatrixError.DimensionMismatch);
+}
+
+test "matrix max" {
+    const allocator = std.heap.page_allocator;
+    var m1 = try Matrix.init_square(4, allocator);
+    try m1.insert(0, 0, -2);
+    try m1.insert(0, 1, 5);
+    try m1.insert(0, 2, 9);
+    try m1.insert(3, 2, 3);
+    try expect(m1.max() == 9.0);
+
+    var m2 = try Matrix.init_square(4, allocator);
+    try m2.insert(0, 0, -2);
+    try m2.insert(0, 1, 5);
+    try m2.insert(0, 2, 9);
+    try m2.insert(3, 2, 3);
+    try m2.insert(3, 3, 11);
+    try expect(m2.max() == 11.0);
+
+    var m3 = try Matrix.init_square(4, allocator);
+    try expect(m3.max() == 0.0);
+}
+
+test "matrix min" {
+    const allocator = std.heap.page_allocator;
+    var m1 = try Matrix.init_square(4, allocator);
+    try m1.insert(0, 0, -2);
+    try m1.insert(0, 1, 5);
+    try m1.insert(0, 2, 9);
+    try m1.insert(3, 2, 3);
+    try expect(m1.min() == -2.0);
+
+    var m2 = try Matrix.init_square(4, allocator);
+    try m2.insert(0, 0, -10);
+    try m2.insert(0, 1, -5);
+    try m2.insert(0, 2, -11);
+    try m2.insert(3, 2, -3);
+    try m2.insert(3, 3, -1);
+    try expect(m2.min() == -11.0);
+
+    var m3 = try Matrix.init_square(4, allocator);
+    try expect(m3.min() == 0.0);
+}
+
+test "matrix mean" {
+    const allocator = std.heap.page_allocator;
+    var m1 = try Matrix.init_square(2, allocator);
+    try m1.insert(0, 0, 1);
+    try m1.insert(0, 1, 2);
+    try m1.insert(1, 0, 3);
+    try m1.insert(1, 1, 4);
+    try expect(m1.mean() == 2.5);
+}
+
+test "matrix sum" {
+    const allocator = std.heap.page_allocator;
+    var m1 = try Matrix.init_square(2, allocator);
+    try m1.insert(0, 0, 1);
+    try m1.insert(0, 1, 2);
+    try m1.insert(1, 0, 3);
+    try m1.insert(1, 1, 4);
+    try expect(m1.sum() == 10.0);
 }
