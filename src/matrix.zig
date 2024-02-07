@@ -22,10 +22,22 @@ pub const Matrix = struct {
     cols: usize,
     data: ArrayList(f64),
     shape: Shape,
-    allocator: std.mem.Allocator,
+    allocator: Allocator,
     // TODO: Add T (transpose) and I (inverse) of matrix as attributes
     // T: Matrix,
     // I: Matrix,
+
+    pub fn from_array(xs: anytype, allocator: Allocator) (MatrixError || Allocator.Error)!Matrix {
+        const rows = xs.len;
+        const cols = xs[0].len;
+        var retval = try Matrix.init(rows, cols, allocator);
+        for (xs, 0..) |row, i| {
+            for (row, 0..) |item, j| {
+                try retval.insert(i, j, item);
+            }
+        }
+        return retval;
+    }
 
     pub fn from_string(str: []const u8) MatrixError!Matrix {
         _ = str;
@@ -142,7 +154,7 @@ pub const Matrix = struct {
     }
 
     pub fn is_equal(self: Matrix, other: Matrix) MatrixError!bool {
-        if (self.cols != other.rows or self.rows != other.cols) {
+        if (self.cols != other.cols or self.rows != other.rows) {
             return MatrixError.DimensionMismatch;
         }
         for (0..self.rows) |row| {
@@ -296,12 +308,30 @@ pub const Matrix = struct {
     }
 };
 
-// pub fn matrix(vector: ArrayList(f64), rows: usize, cols: usize, shape: Shape) MatrixError!Matrix {
-//     if (rows == 0 or cols == 0) {
-//         return MatrixError.ShapeError;
-//     }
-//     return Matrix{ .data = vector, .rows = rows, .cols = cols, .shape = shape };
-// }
+// TODO: deinitialization
+fn create_array(n: usize, allocator: Allocator) Allocator.Error![][]f64 {
+    var retval = try allocator.alloc([]f64, n);
+    for (0..retval.len) |row| {
+        retval[row] = try allocator.alloc(f64, n);
+    }
+    for (0..retval.len) |row| {
+        for (0..retval[row].len) |col| {
+            retval[row][col] = 0;
+        }
+    }
+    return retval;
+}
+
+fn print_array(xs: [][]f64) void {
+    for (0..xs.len) |row| {
+        std.debug.print("|", .{});
+        for (0..xs[row].len) |col| {
+            std.debug.print(" {}", .{xs[row][col]});
+        }
+        std.debug.print("|\n", .{});
+    }
+}
+
 test "matrix insert" {
     const allocator = std.heap.page_allocator;
 
@@ -337,6 +367,67 @@ test "matrix equal" {
     // Check for dimension mismatch
     var m3 = try Matrix.init_square(3, allocator);
     try expect(m1.is_equal(m3) == MatrixError.DimensionMismatch);
+}
+
+test "matrix from array" {
+    const allocator = std.heap.page_allocator;
+
+    // Default matrix
+    var mat2x2 = [2][2]f64{
+        .{ 1, 2 },
+        .{ 3, 4 },
+    };
+    var m1 = try Matrix.from_array(mat2x2, allocator);
+    var res = try Matrix.init_square(2, allocator);
+    try res.insert(0, 0, 1);
+    try res.insert(0, 1, 2);
+    try res.insert(1, 0, 3);
+    try res.insert(1, 1, 4);
+
+    try expect(try m1.is_equal(res) == true);
+
+    // Identity Matrix
+    var mat4x4 = [4][4]f64{
+        .{ 1, 0, 0, 0 },
+        .{ 0, 1, 0, 0 },
+        .{ 0, 0, 1, 0 },
+        .{ 0, 0, 0, 1 },
+    };
+    var m2 = try Matrix.from_array(mat4x4, allocator);
+    res = try Matrix.eye(4, allocator);
+    try expect(try m2.is_equal(res) == true);
+
+    // Vector
+    var mat3x1 = [3][1]f64{
+        .{1},
+        .{2},
+        .{3},
+    };
+    var m3 = try Matrix.from_array(mat3x1, allocator);
+    res = try Matrix.init(3, 1, allocator);
+    try res.insert(0, 0, 1);
+    try res.insert(1, 0, 2);
+    try res.insert(2, 0, 3);
+    try expect(try m3.is_equal(res) == true);
+
+    // Zero initialized array
+    var m_zero = [3][3]f64{
+        .{ 0, 0, 0 },
+        .{ 0, 0, 0 },
+        .{ 0, 0, 0 },
+    };
+    var m4 = try Matrix.from_array(m_zero, allocator);
+    res = try Matrix.init_square(3, allocator);
+    try expect(try m4.is_equal(res) == true);
+
+    // Slices
+    var dyn_size: usize = 10;
+    var m_variable = try create_array(dyn_size, allocator);
+    defer allocator.free(m_variable);
+    // print_array(m_variable);
+    var m5 = try Matrix.from_array(m_variable, allocator);
+    res = try Matrix.init_square(10, allocator);
+    try expect(try m5.is_equal(res) == true);
 }
 
 test "matrix add" {
