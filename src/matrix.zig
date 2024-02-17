@@ -23,6 +23,7 @@ pub const Matrix = struct {
     data: ArrayList(f64),
     shape: Shape,
     allocator: Allocator,
+
     // TODO: Add T (transpose) and I (inverse) of matrix as attributes
     // T: Matrix,
     // I: Matrix,
@@ -30,13 +31,13 @@ pub const Matrix = struct {
     pub fn from_array(xs: anytype, allocator: Allocator) (MatrixError || Allocator.Error)!Matrix {
         const rows = xs.len;
         const cols = xs[0].len;
-        var retval = try Matrix.init(rows, cols, allocator);
+        var outmatrix = try Matrix.init(rows, cols, allocator);
         for (xs, 0..) |row, i| {
             for (row, 0..) |item, j| {
-                try retval.insert(i, j, item);
+                try outmatrix.insert(i, j, item);
             }
         }
-        return retval;
+        return outmatrix;
     }
 
     pub fn from_string(str: []const u8) MatrixError!Matrix {
@@ -96,10 +97,13 @@ pub const Matrix = struct {
         return Matrix.init(size, size, allocator);
     }
 
-    pub fn fill(self: Matrix, value: f64) !void {
-        _ = value;
-        _ = self;
-        // TODO: Filling matrix with one value
+    pub fn fill(self: Matrix, value: f64) void {
+        for (0..self.rows) |row| {
+            for (0..self.cols) |col| {
+                const idx = row * self.rows + col;
+                self.data.items[idx] = value;
+            }
+        }
     }
 
     /// Create a zero initialized square matrix with ones on the diagonal
@@ -153,9 +157,9 @@ pub const Matrix = struct {
         try writer.writeAll("]");
     }
 
-    pub fn is_equal(self: Matrix, other: Matrix) MatrixError!bool {
+    pub fn is_equal(self: Matrix, other: Matrix) bool {
         if (self.cols != other.cols or self.rows != other.rows) {
-            return MatrixError.DimensionMismatch;
+            return false;
         }
         for (0..self.rows) |row| {
             for (0..self.cols) |col| {
@@ -207,13 +211,13 @@ pub const Matrix = struct {
     }
 
     pub fn mean(self: Matrix) f64 {
-        var retval: f64 = 0.0;
+        var mean_out: f64 = 0.0;
         for (0..self.rows) |row| {
             for (0..self.cols) |col| {
-                retval += self.data.items[row * self.cols + col];
+                mean_out += self.data.items[row * self.cols + col];
             }
         }
-        return retval / @as(f64, @floatFromInt(self.rows * self.cols));
+        return mean_out / @as(f64, @floatFromInt(self.rows * self.cols));
     }
 
     pub fn mean_axis(self: Matrix, axis: usize) MatrixError!f64 {
@@ -223,13 +227,13 @@ pub const Matrix = struct {
     }
 
     pub fn sum(self: Matrix) f64 {
-        var retval: f64 = 0;
+        var sum_out: f64 = 0;
         for (0..self.rows) |row| {
             for (0..self.cols) |col| {
-                retval += self.data.items[row * self.cols + col];
+                sum_out += self.data.items[row * self.cols + col];
             }
         }
-        return retval;
+        return sum_out;
     }
 
     pub fn sum_axis(self: Matrix, axis: usize) MatrixError!f64 {
@@ -239,11 +243,23 @@ pub const Matrix = struct {
     }
 
     /// Multiply two matrices and return the output matrix
-    pub fn mul(self: Matrix, other: Matrix) MatrixError!Matrix {
+    pub fn mul(self: Matrix, other: Matrix, allocator: Allocator) (MatrixError || Allocator.Error)!Matrix {
         if (self.cols != other.rows or self.rows != other.cols) {
             return MatrixError.DimensionMismatch;
         }
-        // TODO: matrix multiplication
+        var outmatrix = try Matrix.init(self.rows, other.cols, allocator);
+        for (0..self.rows) |row| {
+            for (0..other.cols) |ocol| {
+                var rowsum: f64 = 0.0;
+                for (0..self.cols) |scol| {
+                    const sidx = row * self.cols + scol;
+                    const oidx = scol * other.cols + ocol;
+                    rowsum += self.data.items[sidx] * other.data.items[oidx];
+                }
+                outmatrix.data.items[row * other.cols + ocol] = rowsum;
+            }
+        }
+        return outmatrix;
     }
 
     pub fn transpose(self: Matrix) MatrixError!Matrix {
@@ -261,14 +277,14 @@ pub const Matrix = struct {
         if (self.rows != other.rows and self.cols != other.rows) {
             return MatrixError.DimensionMismatch;
         }
-        var retval = try Matrix.init(self.rows, self.cols, self.allocator);
+        var outmatrix = try Matrix.init(self.rows, self.cols, self.allocator);
         for (0..self.rows) |row| {
             for (0..self.cols) |col| {
                 const idx = row * self.cols + col;
-                retval.data.items[idx] = self.data.items[idx] + other.data.items[idx];
+                outmatrix.data.items[idx] = self.data.items[idx] + other.data.items[idx];
             }
         }
-        return retval;
+        return outmatrix;
     }
 
     /// Subtract two matrices and return the resulting matrix
@@ -276,14 +292,14 @@ pub const Matrix = struct {
         if (self.rows != other.rows and self.cols != other.rows) {
             return MatrixError.DimensionMismatch;
         }
-        var retval = try Matrix.init(self.rows, self.cols, self.allocator);
+        var outmatrix = try Matrix.init(self.rows, self.cols, self.allocator);
         for (0..self.rows) |row| {
             for (0..self.cols) |col| {
                 const idx = row * self.cols + col;
-                retval.data.items[idx] = self.data.items[idx] - other.data.items[idx];
+                outmatrix.data.items[idx] = self.data.items[idx] - other.data.items[idx];
             }
         }
-        return retval;
+        return outmatrix;
     }
 
     /// Insert an element into the Matrix
@@ -358,15 +374,15 @@ test "matrix equal" {
     try m2.insert(1, 1, 5.0);
 
     // Check for equality false
-    try expect(try m1.is_equal(m2) == false);
+    try expect(m1.is_equal(m2) == false);
 
     // Check for equality true
     try m1.insert(1, 1, 5.0);
-    try expect(try m1.is_equal(m2) == true);
+    try expect(m1.is_equal(m2) == true);
 
     // Check for dimension mismatch
     var m3 = try Matrix.init_square(3, allocator);
-    try expect(m1.is_equal(m3) == MatrixError.DimensionMismatch);
+    try expect(m1.is_equal(m3) == false);
 }
 
 test "matrix from array" {
@@ -384,7 +400,7 @@ test "matrix from array" {
     try res.insert(1, 0, 3);
     try res.insert(1, 1, 4);
 
-    try expect(try m1.is_equal(res) == true);
+    try expect(m1.is_equal(res) == true);
 
     // Identity Matrix
     var mat4x4 = [4][4]f64{
@@ -395,7 +411,7 @@ test "matrix from array" {
     };
     var m2 = try Matrix.from_array(mat4x4, allocator);
     res = try Matrix.eye(4, allocator);
-    try expect(try m2.is_equal(res) == true);
+    try expect(m2.is_equal(res) == true);
 
     // Vector
     var mat3x1 = [3][1]f64{
@@ -408,7 +424,7 @@ test "matrix from array" {
     try res.insert(0, 0, 1);
     try res.insert(1, 0, 2);
     try res.insert(2, 0, 3);
-    try expect(try m3.is_equal(res) == true);
+    try expect(m3.is_equal(res) == true);
 
     // Zero initialized array
     var m_zero = [3][3]f64{
@@ -418,7 +434,7 @@ test "matrix from array" {
     };
     var m4 = try Matrix.from_array(m_zero, allocator);
     res = try Matrix.init_square(3, allocator);
-    try expect(try m4.is_equal(res) == true);
+    try expect(m4.is_equal(res) == true);
 
     // Slices
     var dyn_size: usize = 10;
@@ -427,7 +443,59 @@ test "matrix from array" {
     // print_array(m_variable);
     var m5 = try Matrix.from_array(m_variable, allocator);
     res = try Matrix.init_square(10, allocator);
-    try expect(try m5.is_equal(res) == true);
+    try expect(m5.is_equal(res) == true);
+}
+
+test "matrix fill" {
+    const allocator = std.heap.page_allocator;
+    var m1 = try Matrix.init_square(2, allocator);
+    var mat2x2 = [2][2]f64{
+        .{ 5, 5 },
+        .{ 5, 5 },
+    };
+    var res = try Matrix.from_array(mat2x2, allocator);
+    m1.fill(5);
+
+    try expect(res.is_equal(m1));
+}
+
+test "matrix mul" {
+    const allocator = std.heap.page_allocator;
+
+    // Default matrix
+    var A = [2][3]f64{
+        .{ 1, 2, 3 },
+        .{ 4, 5, 6 },
+    };
+    var B = [3][2]f64{
+        .{ 1, 4 },
+        .{ 5, 2 },
+        .{ 3, 2 },
+    };
+    var res_array = [2][2]f64{
+        .{ 20, 14 },
+        .{ 47, 38 },
+    };
+    var m1 = try Matrix.from_array(A, allocator);
+    var m2 = try Matrix.from_array(B, allocator);
+    var res = try Matrix.from_array(res_array, allocator);
+
+    var out = try m1.mul(m2, allocator);
+    try expect(res.is_equal(out) == true);
+
+    const msize: usize = 100;
+
+    m1 = try Matrix.init_square(msize, allocator);
+    m1.fill(1);
+    m2 = try Matrix.init_square(msize, allocator);
+    m2.fill(1);
+
+    res = try Matrix.init_square(msize, allocator);
+    res.fill(msize);
+
+    out = try m1.mul(m2, allocator);
+
+    try expect(res.is_equal(out) == true);
 }
 
 test "matrix add" {
@@ -441,7 +509,7 @@ test "matrix add" {
 
     try expect(res.rows == 2);
     try expect(res.cols == 2);
-    try expect(try res.is_equal(m3) == true);
+    try expect(res.is_equal(m3) == true);
 
     // Check for different matrix dimensions
     m1 = try Matrix.eye(2, allocator);
@@ -460,7 +528,7 @@ test "matrix sub" {
 
     try expect(res.rows == 2);
     try expect(res.cols == 2);
-    try expect(try res.is_equal(m3) == true);
+    try expect(res.is_equal(m3) == true);
 
     // Check for different matrix dimensions
     m1 = try Matrix.eye(2, allocator);
