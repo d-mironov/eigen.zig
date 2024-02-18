@@ -496,6 +496,26 @@ test "matrix mul" {
     out = try m1.mul(m2, allocator);
 
     try expect(res.is_equal(out) == true);
+
+    var C = [1][3]f64{
+        .{ 1, 2, 3 },
+    };
+    var D = [3][1]f64{
+        .{4},
+        .{5},
+        .{6},
+    };
+    m1 = try Matrix.from_array(C, allocator);
+    m2 = try Matrix.from_array(D, allocator);
+    var res_array_1 = [1][1]f64{.{32}};
+    res = try Matrix.from_array(res_array_1, allocator);
+
+    out = try m1.mul(m2, allocator);
+    try expect(res.is_equal(out) == true);
+
+    m1 = try Matrix.init(2, 3, allocator);
+    m2 = try Matrix.init(2, 3, allocator);
+    try expect(m1.mul(m2, allocator) == MatrixError.DimensionMismatch);
 }
 
 test "matrix add" {
