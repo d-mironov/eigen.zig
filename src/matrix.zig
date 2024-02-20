@@ -104,14 +104,6 @@ pub const Matrix = struct {
         }
     }
 
-    pub fn is_square(self: Matrix) bool {
-        return self.cols == self.rows;
-    }
-
-    pub fn is_quadratic(self: Matrix) bool {
-        return self.is_square();
-    }
-
     /// Create a zero initialized square matrix with ones on the diagonal
     pub fn eye(size: usize, allocator: Allocator) (MatrixError || Allocator.Error)!Matrix {
         if (size == 0) {
@@ -161,6 +153,14 @@ pub const Matrix = struct {
             }
         }
         try writer.writeAll("]");
+    }
+
+    pub fn is_square(self: Matrix) bool {
+        return self.cols == self.rows;
+    }
+
+    pub fn is_quadratic(self: Matrix) bool {
+        return self.is_square();
     }
 
     pub fn is_equal(self: Matrix, other: Matrix) bool {
@@ -430,11 +430,10 @@ test "matrix from array" {
     const allocator = std.heap.page_allocator;
 
     // Default matrix
-    var mat2x2 = [2][2]f64{
+    var m1 = try Matrix.from_array([2][2]f64{
         .{ 1, 2 },
         .{ 3, 4 },
-    };
-    var m1 = try Matrix.from_array(mat2x2, allocator);
+    }, allocator);
     var res = try Matrix.init_square(2, allocator);
     try res.insert(0, 0, 1);
     try res.insert(0, 1, 2);
@@ -444,23 +443,21 @@ test "matrix from array" {
     try expect(m1.is_equal(res) == true);
 
     // Identity Matrix
-    var mat4x4 = [4][4]f64{
+    var m2 = try Matrix.from_array([4][4]f64{
         .{ 1, 0, 0, 0 },
         .{ 0, 1, 0, 0 },
         .{ 0, 0, 1, 0 },
         .{ 0, 0, 0, 1 },
-    };
-    var m2 = try Matrix.from_array(mat4x4, allocator);
+    }, allocator);
     res = try Matrix.eye(4, allocator);
     try expect(m2.is_equal(res) == true);
 
     // Vector
-    var mat3x1 = [3][1]f64{
+    var m3 = try Matrix.from_array([3][1]f64{
         .{1},
         .{2},
         .{3},
-    };
-    var m3 = try Matrix.from_array(mat3x1, allocator);
+    }, allocator);
     res = try Matrix.init(3, 1, allocator);
     try res.insert(0, 0, 1);
     try res.insert(1, 0, 2);
@@ -468,12 +465,11 @@ test "matrix from array" {
     try expect(m3.is_equal(res) == true);
 
     // Zero initialized array
-    var m_zero = [3][3]f64{
+    var m4 = try Matrix.from_array([3][3]f64{
         .{ 0, 0, 0 },
         .{ 0, 0, 0 },
         .{ 0, 0, 0 },
-    };
-    var m4 = try Matrix.from_array(m_zero, allocator);
+    }, allocator);
     res = try Matrix.init_square(3, allocator);
     try expect(m4.is_equal(res) == true);
 
@@ -490,11 +486,10 @@ test "matrix from array" {
 test "matrix fill" {
     const allocator = std.heap.page_allocator;
     var m1 = try Matrix.init_square(2, allocator);
-    var mat2x2 = [2][2]f64{
+    var res = try Matrix.from_array([2][2]f64{
         .{ 5, 5 },
         .{ 5, 5 },
-    };
-    var res = try Matrix.from_array(mat2x2, allocator);
+    }, allocator);
     m1.fill(5);
 
     try expect(res.is_equal(m1));
@@ -503,60 +498,53 @@ test "matrix fill" {
 test "matrix mul" {
     const allocator = std.heap.page_allocator;
 
-    // Default matrix
-    var A = [2][3]f64{
+    var A = try Matrix.from_array([2][3]f64{
         .{ 1, 2, 3 },
         .{ 4, 5, 6 },
-    };
-    var B = [3][2]f64{
+    }, allocator);
+    var B = try Matrix.from_array([3][2]f64{
         .{ 1, 4 },
         .{ 5, 2 },
         .{ 3, 2 },
-    };
-    var res_array = [2][2]f64{
+    }, allocator);
+    var res = try Matrix.from_array([2][2]f64{
         .{ 20, 14 },
         .{ 47, 38 },
-    };
-    var m1 = try Matrix.from_array(A, allocator);
-    var m2 = try Matrix.from_array(B, allocator);
-    var res = try Matrix.from_array(res_array, allocator);
+    }, allocator);
 
-    var out = try m1.mul(m2, allocator);
+    var out = try A.mul(B, allocator);
     try expect(res.is_equal(out) == true);
 
     const msize: usize = 100;
 
-    m1 = try Matrix.init_square(msize, allocator);
-    m1.fill(1);
-    m2 = try Matrix.init_square(msize, allocator);
-    m2.fill(1);
+    A = try Matrix.init_square(msize, allocator);
+    A.fill(1);
+    B = try Matrix.init_square(msize, allocator);
+    B.fill(1);
 
     res = try Matrix.init_square(msize, allocator);
     res.fill(msize);
 
-    out = try m1.mul(m2, allocator);
+    out = try A.mul(B, allocator);
 
     try expect(res.is_equal(out) == true);
 
-    var C = [1][3]f64{
+    A = try Matrix.from_array([1][3]f64{
         .{ 1, 2, 3 },
-    };
-    var D = [3][1]f64{
+    }, allocator);
+    B = try Matrix.from_array([3][1]f64{
         .{4},
         .{5},
         .{6},
-    };
-    m1 = try Matrix.from_array(C, allocator);
-    m2 = try Matrix.from_array(D, allocator);
-    var res_array_1 = [1][1]f64{.{32}};
-    res = try Matrix.from_array(res_array_1, allocator);
+    }, allocator);
+    res = try Matrix.from_array([1][1]f64{.{32}}, allocator);
 
-    out = try m1.mul(m2, allocator);
+    out = try A.mul(B, allocator);
     try expect(res.is_equal(out) == true);
 
-    m1 = try Matrix.init(2, 3, allocator);
-    m2 = try Matrix.init(2, 3, allocator);
-    try expect(m1.mul(m2, allocator) == MatrixError.DimensionMismatch);
+    A = try Matrix.init(2, 3, allocator);
+    B = try Matrix.init(2, 3, allocator);
+    try expect(A.mul(B, allocator) == MatrixError.DimensionMismatch);
 }
 
 test "matrix transposed" {
