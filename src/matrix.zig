@@ -2,7 +2,6 @@
 /// TODO: Add hardware specialized support
 /// TODO: GPU support?
 /// TODO: Multithreading?
-///
 const std = @import("std");
 const expect = std.testing.expect;
 const ArrayList = std.ArrayList;
@@ -54,7 +53,6 @@ pub const Matrix = struct {
         // TODO: Create a matrix from a file
         //
         // Example:
-        // 4 5
         // 1 6 7 2 6
         // 9 5 2 2 1
         // 8 3 4 9 2
@@ -104,6 +102,14 @@ pub const Matrix = struct {
                 self.data.items[idx] = value;
             }
         }
+    }
+
+    pub fn is_square(self: Matrix) bool {
+        return self.cols == self.rows;
+    }
+
+    pub fn is_quadratic(self: Matrix) bool {
+        return self.is_square();
     }
 
     /// Create a zero initialized square matrix with ones on the diagonal
@@ -262,9 +268,44 @@ pub const Matrix = struct {
         return outmatrix;
     }
 
-    pub fn transpose(self: Matrix) MatrixError!Matrix {
-        _ = self;
-        // TODO: Matrix transpose
+    pub fn transposed(self: Matrix, allocator: Allocator) (MatrixError || Allocator.Error)!Matrix {
+        var outmatrix = try Matrix.init(self.cols, self.rows, allocator);
+        for (0..self.rows) |row| {
+            for (0..self.cols) |col| {
+                const data = self.data.items[row * self.cols + col];
+                outmatrix.data.items[col * outmatrix.cols + row] = data;
+            }
+        }
+        return outmatrix;
+    }
+
+    pub fn T(self: Matrix) (MatrixError || Allocator.Error)!Matrix {
+        var outmatrix = try Matrix.init(self.cols, self.rows, self.allocator);
+        for (0..self.rows) |row| {
+            for (0..self.cols) |col| {
+                const data = self.data.items[row * self.cols + col];
+                outmatrix.data.items[col * outmatrix.cols + row] = data;
+            }
+        }
+        return outmatrix;
+    }
+
+    pub fn transpose(self: *Matrix) (MatrixError || Allocator.Error)!void {
+        var tp = ArrayList(f64).init(self.allocator);
+        for (0..(self.rows * self.cols)) |_| {
+            try tp.append(0);
+        }
+        for (0..self.rows) |row| {
+            for (0..self.cols) |col| {
+                const data = self.data.items[row * self.cols + col];
+                tp.items[col * self.rows + row] = data;
+            }
+        }
+        self.data.deinit();
+        self.data = tp;
+        const tmp = self.rows;
+        self.rows = self.cols;
+        self.cols = tmp;
     }
 
     pub fn inverse(self: Matrix) MatrixError!Matrix {
@@ -311,7 +352,7 @@ pub const Matrix = struct {
     }
 
     /// Get an element from the Matrix
-    pub fn get(self: Matrix, row: usize, col: usize) (MatrixError || Allocator.Error)!f64 {
+    pub fn get(self: Matrix, row: usize, col: usize) MatrixError!f64 {
         if (row >= self.rows or col >= self.cols) {
             return MatrixError.OutOfBound;
         }
@@ -516,6 +557,42 @@ test "matrix mul" {
     m1 = try Matrix.init(2, 3, allocator);
     m2 = try Matrix.init(2, 3, allocator);
     try expect(m1.mul(m2, allocator) == MatrixError.DimensionMismatch);
+}
+
+test "matrix transposed" {
+    const allocator = std.heap.page_allocator;
+
+    var m1 = try Matrix.from_array([3][2]f64{
+        .{ 1, 2 },
+        .{ 3, 4 },
+        .{ 5, 6 },
+    }, allocator);
+    var res = try Matrix.from_array([2][3]f64{
+        .{ 1, 3, 5 },
+        .{ 2, 4, 6 },
+    }, allocator);
+    var out = try m1.transposed(allocator);
+
+    try expect(out.is_equal(res) == true);
+
+    out = try m1.T();
+    try expect(out.is_equal(res) == true);
+}
+
+test "matrix transpose" {
+    const allocator = std.heap.page_allocator;
+
+    var m1 = try Matrix.from_array([3][2]f64{
+        .{ 1, 2 },
+        .{ 3, 4 },
+        .{ 5, 6 },
+    }, allocator);
+    var res = try Matrix.from_array([2][3]f64{
+        .{ 1, 3, 5 },
+        .{ 2, 4, 6 },
+    }, allocator);
+    _ = try m1.transpose();
+    try expect(m1.is_equal(res) == true);
 }
 
 test "matrix add" {
