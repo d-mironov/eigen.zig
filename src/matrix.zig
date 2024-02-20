@@ -23,7 +23,7 @@ pub const Matrix = struct {
     shape: Shape,
     allocator: Allocator,
 
-    // TODO: Add T (transpose) and I (inverse) of matrix as attributes
+    // NOTE: Add T (transpose) and I (inverse) of matrix as attributes
     // T: Matrix,
     // I: Matrix,
 
