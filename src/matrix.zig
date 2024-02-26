@@ -253,6 +253,7 @@ pub const Matrix = struct {
         if (self.cols != other.rows or self.rows != other.cols) {
             return MatrixError.DimensionMismatch;
         }
+        // TODO: Add Strassen Algorithm for faster square matrix multiplication (https://en.wikipedia.org/wiki/Strassen_algorithm)
         var outmatrix = try Matrix.init(self.rows, other.cols, allocator);
         for (0..self.rows) |row| {
             for (0..other.cols) |ocol| {
@@ -389,7 +390,7 @@ fn print_array(xs: [][]f64) void {
     }
 }
 
-test "matrix insert" {
+test "insert" {
     const allocator = std.heap.page_allocator;
 
     var m1 = try Matrix.init(2, 2, allocator);
@@ -402,7 +403,7 @@ test "matrix insert" {
     try expect(m1.insert(2, 0, 1.0) == MatrixError.OutOfBound);
 }
 
-test "matrix equal" {
+test "equal" {
     const allocator = std.heap.page_allocator;
 
     var m1 = try Matrix.init_square(4, allocator);
@@ -426,7 +427,7 @@ test "matrix equal" {
     try expect(m1.is_equal(m3) == false);
 }
 
-test "matrix from array" {
+test "from array" {
     const allocator = std.heap.page_allocator;
 
     // Default matrix
@@ -483,7 +484,7 @@ test "matrix from array" {
     try expect(m5.is_equal(res) == true);
 }
 
-test "matrix fill" {
+test "fill" {
     const allocator = std.heap.page_allocator;
     var m1 = try Matrix.init_square(2, allocator);
     var res = try Matrix.from_array([2][2]f64{
@@ -495,7 +496,7 @@ test "matrix fill" {
     try expect(res.is_equal(m1));
 }
 
-test "matrix mul" {
+test "mul" {
     const allocator = std.heap.page_allocator;
 
     var A = try Matrix.from_array([2][3]f64{
@@ -547,7 +548,7 @@ test "matrix mul" {
     try expect(A.mul(B, allocator) == MatrixError.DimensionMismatch);
 }
 
-test "matrix transposed" {
+test "transposed" {
     const allocator = std.heap.page_allocator;
 
     var m1 = try Matrix.from_array([3][2]f64{
@@ -567,7 +568,7 @@ test "matrix transposed" {
     try expect(out.is_equal(res) == true);
 }
 
-test "matrix transpose" {
+test "transpose" {
     const allocator = std.heap.page_allocator;
 
     var m1 = try Matrix.from_array([3][2]f64{
@@ -583,7 +584,7 @@ test "matrix transpose" {
     try expect(m1.is_equal(res) == true);
 }
 
-test "matrix add" {
+test "add" {
     const allocator = std.heap.page_allocator;
     var m1 = try Matrix.eye(2, allocator);
     var m2 = try Matrix.eye(2, allocator);
@@ -602,7 +603,7 @@ test "matrix add" {
     try expect(m1.add(m2) == MatrixError.DimensionMismatch);
 }
 
-test "matrix sub" {
+test "sub" {
     const allocator = std.heap.page_allocator;
 
     // Default subtraction case
@@ -621,7 +622,7 @@ test "matrix sub" {
     try expect(m1.sub(m2) == MatrixError.DimensionMismatch);
 }
 
-test "matrix max" {
+test "max" {
     const allocator = std.heap.page_allocator;
     var m1 = try Matrix.init_square(4, allocator);
     try m1.insert(0, 0, -2);
@@ -642,7 +643,7 @@ test "matrix max" {
     try expect(m3.max() == 0.0);
 }
 
-test "matrix min" {
+test "min" {
     const allocator = std.heap.page_allocator;
     var m1 = try Matrix.init_square(4, allocator);
     try m1.insert(0, 0, -2);
@@ -663,7 +664,7 @@ test "matrix min" {
     try expect(m3.min() == 0.0);
 }
 
-test "matrix mean" {
+test "mean" {
     const allocator = std.heap.page_allocator;
     var m1 = try Matrix.init_square(2, allocator);
     try m1.insert(0, 0, 1);
@@ -673,7 +674,7 @@ test "matrix mean" {
     try expect(m1.mean() == 2.5);
 }
 
-test "matrix sum" {
+test "sum" {
     const allocator = std.heap.page_allocator;
     var m1 = try Matrix.init_square(2, allocator);
     try m1.insert(0, 0, 1);
