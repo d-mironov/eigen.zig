@@ -269,6 +269,10 @@ pub const Matrix = struct {
         return outmatrix;
     }
 
+    pub fn dot(self: Matrix, other: Matrix, allocator: Allocator) (MatrixError || Allocator.Error)!Matrix {
+        return self.mul(other, allocator);
+    }
+
     pub fn transposed(self: Matrix, allocator: Allocator) (MatrixError || Allocator.Error)!Matrix {
         var outmatrix = try Matrix.init(self.cols, self.rows, allocator);
         for (0..self.rows) |row| {
@@ -365,6 +369,47 @@ pub const Matrix = struct {
         self.data.deinit();
     }
 };
+
+pub fn dot(m1: Matrix, m2: Matrix, allocator: Allocator) (MatrixError || Allocator.Error)!Matrix {
+    if (m1.cols != m2.rows or m1.rows != m2.cols) {
+        return MatrixError.DimensionMismatch;
+    }
+    // TODO: Add Strassen Algorithm for faster square matrix multiplication (https://en.wikipedia.org/wiki/Strassen_algorithm)
+    var outmatrix = try Matrix.init(m1.rows, m2.cols, allocator);
+    for (0..m1.rows) |row| {
+        for (0..m2.cols) |ocol| {
+            var rowsum: f64 = 0.0;
+            for (0..m1.cols) |scol| {
+                const sidx = row * m1.cols + scol;
+                const oidx = scol * m2.cols + ocol;
+                rowsum += m1.data.items[sidx] * m2.data.items[oidx];
+            }
+            outmatrix.data.items[row * m2.cols + ocol] = rowsum;
+        }
+    }
+    return outmatrix;
+}
+
+pub fn eye(size: usize, allocator: Allocator) (MatrixError || Allocator.Error)!Matrix {
+    if (size == 0) {
+        return MatrixError.ShapeError;
+    }
+    var data = ArrayList(f64).init(allocator);
+    for (0..(size * size)) |i| {
+        if (i % (size + 1) == 0) {
+            try data.append(1);
+        } else {
+            try data.append(0);
+        }
+    }
+    return Matrix{
+        .shape = .{ size, size },
+        .rows = size,
+        .cols = size,
+        .data = data,
+        .allocator = allocator,
+    };
+}
 
 // TODO: deinitialization
 fn create_array(n: usize, allocator: Allocator) Allocator.Error![][]f64 {
@@ -546,6 +591,58 @@ test "mul" {
     A = try Matrix.init(2, 3, allocator);
     B = try Matrix.init(2, 3, allocator);
     try expect(A.mul(B, allocator) == MatrixError.DimensionMismatch);
+}
+
+test "dot" {
+    const allocator = std.heap.page_allocator;
+
+    var A = try Matrix.from_array([2][3]f64{
+        .{ 1, 2, 3 },
+        .{ 4, 5, 6 },
+    }, allocator);
+    var B = try Matrix.from_array([3][2]f64{
+        .{ 1, 4 },
+        .{ 5, 2 },
+        .{ 3, 2 },
+    }, allocator);
+    var res = try Matrix.from_array([2][2]f64{
+        .{ 20, 14 },
+        .{ 47, 38 },
+    }, allocator);
+
+    var out = try dot(A, B, allocator);
+    try expect(res.is_equal(out) == true);
+
+    const msize: usize = 100;
+
+    A = try Matrix.init_square(msize, allocator);
+    A.fill(1);
+    B = try Matrix.init_square(msize, allocator);
+    B.fill(1);
+
+    res = try Matrix.init_square(msize, allocator);
+    res.fill(msize);
+
+    out = try dot(A, B, allocator);
+
+    try expect(res.is_equal(out) == true);
+
+    A = try Matrix.from_array([1][3]f64{
+        .{ 1, 2, 3 },
+    }, allocator);
+    B = try Matrix.from_array([3][1]f64{
+        .{4},
+        .{5},
+        .{6},
+    }, allocator);
+    res = try Matrix.from_array([1][1]f64{.{32}}, allocator);
+
+    out = try dot(A, B, allocator);
+    try expect(res.is_equal(out) == true);
+
+    A = try Matrix.init(2, 3, allocator);
+    B = try Matrix.init(2, 3, allocator);
+    try expect(dot(A, B, allocator) == MatrixError.DimensionMismatch);
 }
 
 test "transposed" {
